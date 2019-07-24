@@ -2,6 +2,7 @@ import aiohttp
 import traceback
 import sys
 import discord
+import coc
 
 from cogs.utils import context
 # from cogs.utils.log import DiscordLogging
@@ -24,10 +25,14 @@ else:
 
 description = """Discrd bot used to track Clash of Clans Trophy Push Events - by TubaKid/wpmjones"""
 
-initial_extensions = [# "cogs.general",
-                     "cogs.push",
-                     "cogs.admin",
-                    ]
+initial_extensions = ["cogs.push",
+                      "cogs.admin",
+                      ]
+
+coc_client = coc.login(settings['supercell']['user'],
+                       settings['supercell']['pass'],
+                       client=coc.EventsClient,
+                       key_names=coc_names)
 
 
 class PushBot(commands.Bot):
@@ -37,7 +42,7 @@ class PushBot(commands.Bot):
 
         self.token = settings['discord']['testToken']
         self.session = aiohttp.ClientSession(loop=self.loop)
-        self.coc_names = coc_names
+        self.coc = coc_client
 
         for extension in initial_extensions:
             try:
