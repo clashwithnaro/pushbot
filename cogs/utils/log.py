@@ -3,6 +3,8 @@ from config import settings
 
 
 class DiscordLogging:
+    def __init__(self):
+        self.bot = bot
 
     def write(self, message):
         # record = message.record

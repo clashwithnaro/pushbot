@@ -94,6 +94,7 @@ class PushBot(commands.Bot):
     async def close(self):
         await super().close()
         await self.session.close()
+        await self.coc.close()
 
     def run(self):
         try:

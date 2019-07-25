@@ -12,6 +12,7 @@ class Push(commands.Cog):
 
     def cog_unload(self):
         self.clan_list.cancel()
+        self.bot.coc.stop_updates("player")
         print("clan list loop ended")
 
     @tasks.loop(hours=1)
