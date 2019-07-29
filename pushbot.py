@@ -18,6 +18,11 @@ if enviro == "LIVE":
     prefix = "/"
     log_level = "INFO"
     coc_names = "vps"
+elif enviro == "work":
+    token = settings['discord']['testToken']
+    prefix = ">"
+    log_level = "DEBUG"
+    coc_names = "work"
 else:
     token = settings['discord']['testToken']
     prefix = ">"
@@ -26,8 +31,9 @@ else:
 
 description = """Discord bot used to track Clash of Clans Trophy Push Events - by TubaKid/wpmjones"""
 
-initial_extensions = ["cogs.push",
-                      "cogs.admin",
+initial_extensions = ["cogs.admin",
+                      "cogs.newhelp",
+                      "cogs.push",
                       ]
 
 coc_client = coc.login(settings['supercell']['user'],
@@ -38,9 +44,9 @@ coc_client = coc.login(settings['supercell']['user'],
 
 class PushBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix=prefix, description=description,
-                         pm_help=None, help_attrs=dict(hidden=True), fetch_offline_members=False)
-
+        super().__init__(command_prefix=prefix, description=description, case_insensitive=True)
+                         # pm_help=None, help_attrs=dict(hidden=True), fetch_offline_members=False)
+        self.remove_command("help")
         self.token = settings['discord']['testToken']
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.coc = coc_client
@@ -54,11 +60,15 @@ class PushBot(commands.Bot):
                 logger.error(f'Failed to load extension {extension}.', file=sys.stderr)
                 traceback.print_exc()
 
+    @property
+    def log_channel(self):
+        return self.get_channel(settings['logChannels']['push'])
+
     def send_log(self, message):
         asyncio.ensure_future(self.send_message(message))
 
     async def send_message(self, message):
-        await self.get_channel(settings['logChannels']['push']).send(f"`{message}`")
+        await self.log_channel.send(f"`{message}`")
 
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.NoPrivateMessage):

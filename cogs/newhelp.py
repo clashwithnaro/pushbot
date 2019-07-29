@@ -9,3 +9,8 @@ class NewHelp(commands.Cog):
     @commands.command(name="help", hidden=True)
     async def help(self, ctx, command: str = "all"):
         """ Welcome to Push Bot"""
+        await ctx.send("Help is on the way")
+
+
+def setup(bot):
+    bot.add_cog(NewHelp(bot))

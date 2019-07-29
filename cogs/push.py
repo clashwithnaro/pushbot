@@ -1,13 +1,10 @@
 from discord.ext import commands, tasks
-from config import settings
 
 
 class Push(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.clan_list.start()
-        self.channel = bot.get_channel(settings['logChannels']['push'])
-        self.bot.logger.debug(self.channel)
         self.bot.coc.add_events(self.on_player_trophies_change)
         self.bot.coc.start_updates("player")
 
@@ -38,7 +35,7 @@ class Push(commands.Cog):
             text = f"just won {change} trophies!"
         else:
             text = f"just lost {change} trophies."
-        await self.channel.send(f"{player.name} {text}")
+        await self.bot.log_channel.send(f"{player.name} {text}")
 
 
 def setup(bot):

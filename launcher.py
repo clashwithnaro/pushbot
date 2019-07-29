@@ -7,7 +7,6 @@ from pushbot import PushBot
 
 if __name__ == '__main__':
     bot = PushBot()
-    bot.remove_command("help")
     bot.repo = git.Repo(os.getcwd())
     loop = asyncio.get_event_loop()
     bot.db = PushDB(bot)
