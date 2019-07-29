@@ -1,12 +1,13 @@
 import aiohttp
+import asyncio
 import traceback
 import sys
 import discord
 import coc
 
 from cogs.utils import context
-# from cogs.utils.log import DiscordLogging
 from discord.ext import commands
+from loguru import logger
 from config import settings
 from datetime import datetime
 
@@ -23,7 +24,7 @@ else:
     log_level = "DEBUG"
     coc_names = "dev"
 
-description = """Discrd bot used to track Clash of Clans Trophy Push Events - by TubaKid/wpmjones"""
+description = """Discord bot used to track Clash of Clans Trophy Push Events - by TubaKid/wpmjones"""
 
 initial_extensions = ["cogs.push",
                       "cogs.admin",
@@ -43,13 +44,21 @@ class PushBot(commands.Bot):
         self.token = settings['discord']['testToken']
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.coc = coc_client
+        self.logger = logger
+        self.logger.add(self.send_log)
 
         for extension in initial_extensions:
             try:
                 self.load_extension(extension)
             except Exception as e:
-                print(f'Failed to load extension {extension}.', file=sys.stderr)
+                logger.error(f'Failed to load extension {extension}.', file=sys.stderr)
                 traceback.print_exc()
+
+    def send_log(self, message):
+        asyncio.ensure_future(self.send_message(message))
+
+    async def send_message(self, message):
+        await self.get_channel(settings['logChannels']['push']).send(f"`{message}`")
 
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.NoPrivateMessage):
@@ -59,9 +68,9 @@ class PushBot(commands.Bot):
         elif isinstance(error, commands.CommandInvokeError):
             original = error.original
             if not isinstance(original, discord.HTTPException):
-                print(f'In {ctx.command.qualified_name}:', file=sys.stderr)
+                logger.error(f'In {ctx.command.qualified_name}:', file=sys.stderr)
                 traceback.print_tb(original.__traceback__)
-                print(f'{original.__class__.__name__}: {original}', file=sys.stderr)
+                logger.error(f'{original.__class__.__name__}: {original}', file=sys.stderr)
         elif isinstance(error, commands.ArgumentParsingError):
             await ctx.send(error)
 
@@ -69,10 +78,10 @@ class PushBot(commands.Bot):
         if not hasattr(self, 'uptime'):
             self.uptime = datetime.utcnow()
 
-        print(f'Ready: {self.user} (ID: {self.user.id})')
+        logger.info(f'Ready: {self.user} (ID: {self.user.id})')
 
     async def on_resumed(self):
-        print('resumed...')
+        logger.info('resumed...')
 
     async def process_commands(self, message):
         ctx = await self.get_context(message, cls=context.Context)

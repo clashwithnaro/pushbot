@@ -6,7 +6,8 @@ class Push(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.clan_list.start()
-        self.channel = self.bot.get_channel(settings['logChannels']['push'])
+        self.channel = bot.get_channel(settings['logChannels']['push'])
+        self.bot.logger.debug(self.channel)
         self.bot.coc.add_events(self.on_player_trophies_change)
         self.bot.coc.start_updates("player")
 
@@ -23,8 +24,9 @@ class Push(commands.Cog):
 
     @commands.command(name="get_clan")
     async def get_clan(self, ctx, tag):
-        """Just a test so I know things are working"""
-        clan = await self.bot.coc_client.get_clan(tag)
+        """Just a test so I know things are working - DELETE ME"""
+        clan = await self.bot.coc.get_clan(tag)
+        self.bot.logger.debug(f"Received {clan.name} from {tag}")
         await ctx.send(clan.name)
 
     async def on_player_trophies_change(self, old_trophies, new_trophies, player):
