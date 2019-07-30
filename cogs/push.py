@@ -1,4 +1,5 @@
 from discord.ext import commands, tasks
+from config import emojis
 
 
 class Push(commands.Cog):
@@ -32,10 +33,10 @@ class Push(commands.Cog):
         if change == 0:
             return
         if change > 0:
-            text = f"just won {change} trophies!"
+            text = f"{emojis['push']['up']} {player.name} ({player.clan}) just won {change} trophies!"
         else:
-            text = f"just lost {change} trophies."
-        await self.bot.log_channel.send(f"{player.name} {text}")
+            text = f"{emojis['push']['down']} {player.name} ({player.clan}) just lost {change} trophies."
+        await self.bot.log_channel.send(text)
 
 
 def setup(bot):

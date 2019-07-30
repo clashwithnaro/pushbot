@@ -1,6 +1,7 @@
 import discord
 import coc
 from discord.ext import commands
+from .utils import checks
 
 
 class GuildConfig(commands.Cog):
@@ -32,6 +33,7 @@ class GuildConfig(commands.Cog):
                 return
 
     @commands.command(name="add")
+    @checks.is_mod()
     async def add_clan(self, ctx, tag: str):
         """Add clan or player to database."""
         tag = coc.utils.correct_tag(tag)
@@ -48,3 +50,7 @@ class GuildConfig(commands.Cog):
         await ctx.send(f"{clan.name} ({clan.tag}) added to the database.")
         # TODO Do I need to add players at this point? Maybe not. Event start instead.
         # TODO Time adding players vs updating trophies
+
+
+def setup(bot):
+    bot.add_cog(GuildConfig(bot))
