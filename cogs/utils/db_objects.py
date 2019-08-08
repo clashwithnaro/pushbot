@@ -73,21 +73,19 @@ class DatabasePlayer:
         return await self.bot.coc.get_player(self.player_tag)
 
 
-class DatabaseClan:
-    def __init__(self, *, bot, clan_tag=None, record=None):
+class DatabasePushEvent:
+    def __init__(self, *, bot, record=None):
         self.bot = bot
 
         if record:
-            self.id = record['id']
+            self.id = record['event_id']
             self.guild_id = record['guild_id']
-            self.clan_tag = record['clan_tag']
-            self.clan_name = record['clan_name']
+            self.event_name = record['event_name']
             self.channel_id = record['channel_id']
             self.log_interval = record['log_interval']
             self.log_toggle = record['log_toggle']
         else:
             self.guild_id = None
-            self.clan_tag = clan_tag
 
     @property
     def guild(self):
@@ -100,9 +98,6 @@ class DatabaseClan:
     @property
     def interval_seconds(self):
         return self.log_interval.total_seconds()
-
-    async def full_clan(self):
-        return await self.bot.coc.get_clan(self.clan_tag)
 
 
 class DatabaseMessage:
@@ -137,7 +132,7 @@ class DatabaseEvent:
         self.bot = bot
 
         if record:
-            self.id = record['id']
+            self.id = record['coc_event_id']
             self.player_tag = record['player_tag']
             self.clan_tag = record['clan_tag']
             self.trophy_change = record['trophy_change']

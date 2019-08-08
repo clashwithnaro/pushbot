@@ -9,7 +9,7 @@ import discord
 from discord.ext import commands, tasks
 from cogs.utils.converters import ClanConverter, PlayerConverter
 from cogs.utils import formatters, checks
-from cogs.utils.db_objects import DatabaseEvent, DatabaseClan
+from cogs.utils.db_objects import DatabaseEvent, DatabasePushEvent
 from config import emojis
 
 
@@ -24,8 +24,8 @@ class Events(commands.Cog):
         self.report_task.add_exception_type(asyncpg.PostgresConnectionError)
         self.report_task.start()
         self.check_for_timers_task = self.bot.loop.create_task(self.check_for_timers())
-
         self.bot.coc.add_events(self.on_player_trophies_change)
+        self.channel_config_cache = {}
 
     async def cog_command_error(self, ctx, error):
         self.bot.logger.debug(f"Command Error in {self.__class__.__name__}\n{error}")
@@ -155,14 +155,47 @@ class Events(commands.Cog):
                                      "time_stamp": datetime.utcnow().isoformat()})
 
     async def get_channel_config(self,  channel_id):
-        config = self.channel_config_cache(channel_id)
+        config = self.channel_config_cache[channel_id]
         if config:
             return config
-        sql = ("SELECT * FROM clans c "
-               "INNER JOIN events e on c.event_id = e.event_id"
-               "WHERE e.channel_id = $1")
+        sql = ("SELECT event_id,  FROM events "
+               "WHERE channel_id = $1")
         fetch = await self.bot.pool.fetchrow(sql, channel_id)
         if not fetch:
             return None
         # TODO I don't really want a clan here ,but an event
-        clan = DatabaseClan(bot=self.bot, record=fetch)
+        push_event = DatabasePushEvent(bot=self.bot, record=fetch)
+        self.channel_config_cache[channel_id] = push_event
+        return push_event
+
+    def invalidate_channel_config(self, channel_id):
+        self.channel_config_cache.pop(channel_id, None)
+
+    @commands.group(invoke_without_subcommand=True)
+    @checks.manage_guild()
+    async def log(self, ctx):
+        """Manage the push bot logging for the server"""
+        if ctx.invoked_subcommand is None:
+            return await ctx.send_help(ctx.command)
+
+    @log.command(name="info")
+    async def log_info(self, ctx, *, channel: discord.TextChannel = None):
+        """Get information about the log channels for the event tied to this guild"""
+        if channel:
+            sql = ("SELECT event_id, guild_id, event_name, channel_id, log_interval, log_toggle "
+                   "FROM events WHERE channel_id = $1")
+            fetch = await ctx.db.fetch(sql, channel.id)
+            fmt = channel.mention
+        else:
+            sql = ("SELECT event_id, guild_id, event_name, channel_id, log_interval, log_toggle "
+                   "FROM events WHERE guild_id = $1")
+            fetch = await ctx.db.fetch(sql, ctx.guild.id)
+            fmt = ctx.guild.name
+        e = discord.Embed(color=self.bot.color,
+                          description=f"Log info for {fmt}")
+        for event in fetch:
+            config = DatabasePushEvent(bot=self.bot, record=event)
+            fmt = f"Event Name: {config.event_name}\n" \
+                  f"Channel: {config.channel.mention if config.channel else 'None'}\n" \
+                  f"Log Toggle: {'Enabled' if config.log_toggle else 'Disabled'}\n" \
+                  f""

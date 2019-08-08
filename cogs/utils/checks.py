@@ -44,7 +44,7 @@ def has_guild_permissions(*, check=all, **perms):
 # These do not take channel overrides into account
 
 
-def is_mod():
+def manage_guild():
     async def pred(ctx):
         return await check_guild_permissions(ctx, {'manage_guild': True})
     return commands.check(pred)
