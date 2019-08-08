@@ -198,4 +198,27 @@ class Events(commands.Cog):
             fmt = f"Event Name: {config.event_name}\n" \
                   f"Channel: {config.channel.mention if config.channel else 'None'}\n" \
                   f"Log Toggle: {'Enabled' if config.log_toggle else 'Disabled'}\n" \
-                  f""
+                  f"Log Interval: {config.interval_seconds} seconds\n"
+            e.add_field(name=config.event_name, value=fmt)
+            await ctx.send(embed=e)
+
+    @log.command(name="interval")
+    async def log_interval(self, ctx, channel: typing.Optional[discord.TextChannel] = None,
+                           minutes: int = 1):
+        """Update the interval (in minutes) for which the bot will log trophy changes."""
+        if not channel:
+            channel = ctx.channel
+        sql = ("UPDATE events "
+               "SET log_interval = ($1 ||' minutes')::interval "
+               "WHERE channel_id = $2 "
+               "RETURNING event_name")
+        fetch = await ctx.db.fetch(sql, str(minutes), channel.id)
+        if not fetch:
+            return await ctx.send("You haven't created a Push Event yet. You gotta do that first!")
+        await ctx.confirm()
+        fmt = "\n".join(n[0] for n in fetch)
+        self.bot.logger.info(f"Set log interval to {minutes} minutes for {fmt}.")
+        await ctx.send(f"Set log interval to {minutes} minutes for {fmt}.")
+        self.invalidate_channel_config(channel.id)
+
+    @log.command(name="create")
