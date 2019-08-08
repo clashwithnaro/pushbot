@@ -2,6 +2,8 @@ import asyncio
 import asyncpg
 import time
 import math
+import typing
+import coc
 
 from datetime import datetime
 
@@ -43,10 +45,11 @@ class Events(commands.Cog):
             await self.bulk_insert()
 
     async def bulk_insert(self):
-        sql = ("INSERT INTO coc_events (player_tag, clan_tag, trophy_change, time_stamp) "
-               "SELECT json.player_tag, json.clan_tag, json.trophy_change, json.time_stamp "
-               "FROM jsonb_to_recordset($1::jsonb) "
-               "AS json(player_tag TEXT, clan_tag TEXT, trophy_change INTEGER, time_stamp TIMESTAMP)")
+        sql = ("INSERT INTO coc_events (player_tag, player_name, clan_tag, clan_name, trophy_change, time_stamp) "
+               "SELECT json.player_tag, json.player_name, json.clan_tag, jsone.clan_name, json.trophy_change, "
+               "json.time_stamp FROM jsonb_to_recordset($1::jsonb) "
+               "AS json(player_tag TEXT, player_name TEXT, clan_tag TEXT, clan_name TEXT, trophy_change INTEGER, "
+               "time_stamp TIMESTAMP)")
         if self._batch_data:
             await self.bot.pool.execute(sql, self._batch_data)
             total = len(self._batch_data)
@@ -150,7 +153,9 @@ class Events(commands.Cog):
         trophy_change = new_trophies - old_trophies
         async with self._batch_lock:
             self._batch_data.append({"player_tag": player.tag[1:],
+                                     "player_name": player.name,
                                      "clan_tag": player.clan.tag[1:],
+                                     "clan_name": player.clan.name,
                                      "trophy_change": trophy_change,
                                      "time_stamp": datetime.utcnow().isoformat()})
 
@@ -222,3 +227,114 @@ class Events(commands.Cog):
         self.invalidate_channel_config(channel.id)
 
     @log.command(name="create")
+    async def log_create(self, ctx, channel: typing.Optional[discord.TextChannel] = None):
+        """Create log for push events"""
+        if not channel:
+            channel = ctx.channel
+        if not (channel.permissions_for(ctx.me).send_messages or channel.permissions_for(ctx.me).read_messages):
+            return await ctx.send("I need permission to read and send messages here!")
+        sql = ("UPDATE events "
+               "SET channel_id = $1, "
+               "log_toggle = True "
+               "WHERE guild_id = $2 "
+               "RETURNING event_name")
+        fetch = await ctx.db.fetch(sql, channel.id, ctx.guild.id)
+        if not fetch:
+            return await ctx.send("Please add your event using :trophy:add_event")
+        event_name = "\n".join(n[0] for n in fetch)
+        await ctx.send(F"Log channel has been set to {channel.mention} for {event_name} "
+                       F"and logging is enabled.")
+        await ctx.confirm()
+        self.invalidate_channel_config(channel.id)
+
+    @log.command(name="toggle")
+    async def log_toggle(self, ctx, channel: discord.TextChannel = None):
+        """Turn logging on off"""
+        if not channel:
+            channel = ctx.channel
+        config = await self.get_channel_config(channel.id)
+        if not config:
+            return await ctx.send("Please set up a log channel with :trophy: log create.")
+        toggle = not config.log_toggle
+        sql = ("UPDATE events "
+               "SET log_toggle = $1 "
+               "WHERE channel_id = $2 "
+               "RETURNING event_name")
+        fetch = await ctx.db.fetch(sql, toggle, channel.id)
+        if not fetch:
+            return await ctx.send("Please add your event using :trophy:add_event")
+        event_name = "\n".join(n[0] for n in fetch)
+        await ctx.send(F"Logging has been {'enabled' if toggle else 'disabled'} for {event_name}")
+        await ctx.confirm()
+        self.invalidate_channel_config(channel.id)
+
+    @commands.group(invoke_without_command=True)
+    async def recent(self, ctx, limit: typing.Optional[int] = 20, *,
+                     arg: typing.Union[ClanConverter, PlayerConverter] = None):
+        """Check on recent trophy changes. Defaults to 20 recent events."""
+        if ctx.invoked_subcommand is not None:
+            return
+        if not arg:
+            arg = limit
+        if isinstance(arg, int):
+            await ctx.invoke(self.recent_all, limit=arg)
+        elif isinstance(arg, coc.BasicPlayer):
+            await ctx.invoke(self.recent_player, player=arg, limit=limit)
+        elif isinstance(arg, coc.Clan):
+            await ctx.inoke(self.recent_clan, clan=arg, limit=limit)
+        else:
+            await ctx.send("That's not going to work for me. Please try again with a valid player or clan.")
+
+    @recent.command(name="recent_all", hidden=True)
+    async def recent_all(self, ctx, limit: int = None):
+        sql = ("SELECT player_name, clan_name, trophy_change, time_stamp "
+               "FROM coc_events"
+               "WHERE clan_tag IN "
+               "(SELECT clan_tag FROM clans WHERE event_id IN"
+               "(SELECT event_id from events WHERE guild_id = $1)) "
+               "ORDER BY time_stamp DESC"
+               "LIMIT $2")
+        fetch = await ctx.db.fetch(sql, ctx.guild.id, limit)
+        if not fetch:
+            return await ctx.send("No trophy changes found. Please ensure you have enabled "
+                                  "logging and have set up your event for this Discord server.")
+        num_pages = math.ceil(len(fetch) / 20)
+        title = "Recent Trophy Changes"
+        p = formatters.EventsPaginator(ctx, data=fetch, page_count=num_pages, title=title)
+        await p.paginate()
+
+    @recent.command(name="player", hidden=True)
+    async def recent_player(self, ctx, limit: typing.Optional[int] = 20, *,
+                            player: PlayerConverter):
+        sql = ("SELECT player_name, clan_name, trophy_change, time_stamp  "
+               "FROM coc_events "
+               "WHERE player_tag = $1 "
+               "ORDER BY time_stamp DESC"
+               "LIMIT $2")
+        fetch = await ctx.db.fetch(sql, player.tag[1:], limit)
+        if not fetch:
+            return await ctx.send(f"{player.name} ({player.clan}) is not in the event. "
+                                  f"Use :trophy:add_player to add them.")
+        title = f"Recent Trophy Changes for {player.name}"
+        num_pages = math.ceil(len(fetch) / 20)
+        p = formatters.EventsPaginator(ctx, data=fetch, title=title, page_count=num_pages)
+        await p.paginate()
+
+    @recent.commands(name="clan", hidden=True)
+    async def recent_clan(self, ctx, limit: typing.Optional[int] = 20, *, clans: ClanConverter):
+        sql = ("SELECT player_name, clan_name, trophy_change, time_stamp "
+               "FROM coc_events "
+               "WHERE clan_tag = ANY($1::TEXT[]) "
+               "ORDER BY time_stamp DESC "
+               "LIMIT $2")
+        fetch = ctx.db.fetch(sql, list(set(n.tag for n in clans)), limit)
+        if not fetch:
+            return await ctx.send("No events found for the clan(s) provided.")
+        title = f"Recent Trophy Changes for {', '.join(n.name for n in clans)}"
+        num_pages = math.ceil(len(fetch) / 20)
+        p = formatters.EventsPaginator(ctx, data=fetch, title=title, page_count=num_pages)
+        await p.paginate()
+
+
+def setup(bot):
+    bot.add_cog(Events(bot))

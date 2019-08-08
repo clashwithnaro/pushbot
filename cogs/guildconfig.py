@@ -14,8 +14,9 @@ class GuildConfig(commands.Cog):
         sql = "INSERT INTO guilds (guild_id, guild_name) VALUES ($1, $2) ON CONFLICT (guild_id) DO NOTHING"
         await self.bot.pool.execute(sql, guild.id, guild.name)
         welcome_msg = ("Thank you for installing PushBot! My job is to help you track your trophy push event! "
-                       "My prefix is `/`. To get started, how about telling me which clans you'd like to include "
-                       "in your event.  Use the `/add` command to add one or more clan tags (separated by comma).")
+                       "My prefix is `:trophy:`. To get started, how about telling me which clans you'd like to "
+                       "include in your event.  Use the `:trophy:add` command to add one or more clan tags "
+                       "(separated by comma).")
         if guild.system_channel:
             try:
                 await guild.system_channel.send(welcome_msg)

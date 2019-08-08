@@ -18,7 +18,7 @@ enviro = "dev"
 
 if enviro == "LIVE":
     token = settings['discord']['pushToken']
-    prefix = "/"
+    prefix = ":trophy:"
     log_level = "INFO"
     coc_names = "vps"
 elif enviro == "work":
@@ -36,7 +36,7 @@ description = """Discord bot used to track Clash of Clans Trophy Push Events - b
 
 initial_extensions = ["cogs.admin",
                       "cogs.newhelp",
-                      "cogs.push",
+                      "cogs.events",
                       ]
 
 coc_client = coc.login(settings['supercell']['user'],
