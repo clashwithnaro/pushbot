@@ -137,7 +137,7 @@ class PushBot(commands.Bot):
         e.add_field(name='Args', value='\n'.join(args_str), inline=False)
 
         try:
-            self.log_channel.send(embed=e)
+            await self.log_channel.send(embed=e)
         except:
             pass
 

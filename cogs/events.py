@@ -46,7 +46,7 @@ class Events(commands.Cog):
 
     async def bulk_insert(self):
         sql = ("INSERT INTO coc_events (player_tag, player_name, clan_tag, clan_name, trophy_change, time_stamp) "
-               "SELECT json.player_tag, json.player_name, json.clan_tag, jsone.clan_name, json.trophy_change, "
+               "SELECT json.player_tag, json.player_name, json.clan_tag, json.clan_name, json.trophy_change, "
                "json.time_stamp FROM jsonb_to_recordset($1::jsonb) "
                "AS json(player_tag TEXT, player_name TEXT, clan_tag TEXT, clan_name TEXT, trophy_change INTEGER, "
                "time_stamp TIMESTAMP)")
@@ -112,6 +112,7 @@ class Events(commands.Cog):
                 self.dispatch_log(channel_config.channel_id, interval, "\n".join(batch))
             self.bot.logger.info("Dispatched logs for {} (guild {})".format(channel_config.channel or "Not Found",
                                                                             channel_config.guild or "No guild"))
+        # TODO How does trophy change in events translate to currentTrophies in players?
         sql = ("UPDATE events "
                "SET reported = True "
                "WHERE reported = False")
@@ -152,9 +153,9 @@ class Events(commands.Cog):
     async def on_player_trophies_change(self, old_trophies, new_trophies, player):
         trophy_change = new_trophies - old_trophies
         async with self._batch_lock:
-            self._batch_data.append({"player_tag": player.tag[1:],
+            self._batch_data.append({"player_tag": player.tag,
                                      "player_name": player.name,
-                                     "clan_tag": player.clan.tag[1:],
+                                     "clan_tag": player.clan.tag,
                                      "clan_name": player.clan.name,
                                      "trophy_change": trophy_change,
                                      "time_stamp": datetime.utcnow().isoformat()})
@@ -163,12 +164,11 @@ class Events(commands.Cog):
         config = self.channel_config_cache[channel_id]
         if config:
             return config
-        sql = ("SELECT event_id,  FROM events "
+        sql = ("SELECT event_id, guild_id, event_name, channel_id, log_interval, log_toggle FROM events "
                "WHERE channel_id = $1")
         fetch = await self.bot.pool.fetchrow(sql, channel_id)
         if not fetch:
             return None
-        # TODO I don't really want a clan here ,but an event
         push_event = DatabasePushEvent(bot=self.bot, record=fetch)
         self.channel_config_cache[channel_id] = push_event
         return push_event
@@ -311,7 +311,7 @@ class Events(commands.Cog):
                "WHERE player_tag = $1 "
                "ORDER BY time_stamp DESC"
                "LIMIT $2")
-        fetch = await ctx.db.fetch(sql, player.tag[1:], limit)
+        fetch = await ctx.db.fetch(sql, player.tag, limit)
         if not fetch:
             return await ctx.send(f"{player.name} ({player.clan}) is not in the event. "
                                   f"Use :trophy:add_player to add them.")

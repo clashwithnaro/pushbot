@@ -1,3 +1,4 @@
+import coc
 from datetime import datetime
 
 from cogs.utils.formatters import readable_time
@@ -13,6 +14,7 @@ class DatabaseGuild:
         self.bot = bot
 
         if record:
+            # TODO Update pushbot.guilds database with these fields
             self.id = record['id']
             self.updates_channel_id = record['updates_channel_id']
             self.updates_toggle = record['updates_toggle']
@@ -37,7 +39,7 @@ class DatabaseGuild:
             self.auto_claim = False
 
     @property
-    def donationboard(self):
+    def pushboard(self):
         return self.bot.get_channel(self.updates_channel_id)
 
     @property
@@ -51,15 +53,33 @@ class DatabaseGuild:
         return [DatabaseMessage(bot=self.bot, record=n) for n in fetch]
 
 
+class DatabaseClan:
+    def __init__(self, *, bot, clan_tag=None, record=None):
+        self.bot = bot
+
+        if record:
+            self.id = record["clan_id"]
+            self.clan_tag = record["clan_tag"]
+            self.event_id = record["event_id"]
+        else:
+            self.clan_tag = coc.utils.correct_tag(clan_tag)
+
+    async def full_clan(self):
+        clan = await self.bot.coc.get_clan(self.clan_tag)
+        # TODO perhaps grab event_id's while here
+        return clan
+
+
 class DatabasePlayer:
     def __init__(self, *, bot, player_tag=None, record=None):
         self.bot = bot
 
         if record:
-            self.id = record['id']
+            self.id = record['player_id']
+            self.player_name = record['player_name']
             self.player_tag = record['player_tag']
-            self.donations = record['donations']
-            self.received = record['received']
+            self.current_trophies = record['current_trophies']
+            self.attacks = record['attacks']
             self.user_id = record['user_id']
         else:
             self.user_id = None

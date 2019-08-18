@@ -2,7 +2,7 @@ from datetime import datetime
 from discord.utils import _string_width, escape_markdown
 import discord
 from cogs.utils.paginator import Pages
-from cogs.utils.emoji_lookup import number_emojis, misc, townhall_emojis
+
 
 def clean_name(name):
     if len(name) > 15:
